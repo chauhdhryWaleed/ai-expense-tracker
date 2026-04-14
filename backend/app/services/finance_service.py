@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import and_, extract, func, select
 from sqlalchemy.orm import Session
@@ -44,6 +44,39 @@ def list_expenses(
     return list(db.scalars(query).all())
 
 
+def update_expense(db: Session, expense_id: int, payload: ExpenseCreate) -> Expense | None:
+    expense = db.get(Expense, expense_id)
+    if not expense:
+        return None
+    expense.amount = payload.amount
+    expense.category = payload.category or ExpenseCategory.OTHER
+    expense.date = payload.date
+    expense.note = payload.note
+    db.commit()
+    db.refresh(expense)
+    return expense
+
+
+def clear_spent(db: Session, month: str | None = None) -> int:
+    target_month = month or datetime.now().strftime("%Y-%m")
+    year, month_num = target_month.split("-")
+    rows = list(
+        db.scalars(
+            select(Expense).where(
+                and_(
+                    extract("year", Expense.date) == int(year),
+                    extract("month", Expense.date) == int(month_num),
+                )
+            )
+        ).all()
+    )
+    deleted_count = len(rows)
+    for row in rows:
+        db.delete(row)
+    db.commit()
+    return deleted_count
+
+
 def set_budget(db: Session, payload: BudgetCreate) -> Budget:
     existing = db.scalar(select(Budget).where(Budget.month == payload.month))
     if existing:
@@ -57,6 +90,15 @@ def set_budget(db: Session, payload: BudgetCreate) -> Budget:
     db.commit()
     db.refresh(budget)
     return budget
+
+
+def clear_budget(db: Session, month: str) -> bool:
+    budget = db.scalar(select(Budget).where(Budget.month == month))
+    if not budget:
+        return False
+    db.delete(budget)
+    db.commit()
+    return True
 
 
 def get_summary(db: Session, month: str) -> dict:

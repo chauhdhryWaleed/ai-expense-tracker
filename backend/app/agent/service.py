@@ -105,7 +105,9 @@ class GroqAgentService:
                 "content": (
                     "You are an expense assistant. Use tools whenever the user asks to add, list, "
                     "summarize expenses, or set budget. If date is omitted while adding expense, use "
-                    f"today's date ({today}). If category is missing, pick the closest among Food, Fuel, Other."
+                    f"today's date ({today}). If category is missing, pick the closest among Food, Fuel, Other. "
+                    "Currency is PKR (Pakistani Rupees). Always mention PKR, never USD symbols. "
+                    "When tool results are available, never alter numeric values from tools."
                 ),
             },
             {"role": "user", "content": user_message},
@@ -149,5 +151,16 @@ class GroqAgentService:
                 }
             )
 
+        messages.append(
+            {
+                "role": "system",
+                "content": (
+                    "Generate a concise answer in PKR. Use exact numbers from tool outputs. "
+                    "Do not recalculate or change numeric values."
+                ),
+            }
+        )
+
         final_response = await self._call_groq(messages, tool_choice="none")
-        return final_response["choices"][0]["message"].get("content") or "Done."
+        content = final_response["choices"][0]["message"].get("content") or "Done."
+        return content.replace("$", "PKR ")

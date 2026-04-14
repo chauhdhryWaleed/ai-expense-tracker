@@ -3,9 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import {
   addExpense,
   chatWithAgent,
+  clearBudget,
+  clearSpent,
   getExpenses,
   getSummary,
   setBudget,
+  updateExpense,
   type Expense,
   type ExpenseCategory,
 } from "./api/client";
@@ -24,6 +27,15 @@ export default function App() {
   const [budgetAmount, setBudgetAmount] = useState("");
 
   const currentMonth = useMemo(() => new Date().toISOString().slice(0, 7), []);
+  const pkr = useMemo(
+    () =>
+      new Intl.NumberFormat("en-PK", {
+        style: "currency",
+        currency: "PKR",
+        maximumFractionDigits: 0,
+      }),
+    [],
+  );
 
   async function refreshData() {
     const [expenseRows, summaryRows] = await Promise.all([
@@ -44,8 +56,13 @@ export default function App() {
   }, [categoryFilter, startDate, endDate]);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 p-4">
-      <h1 className="text-2xl font-bold">AI Expense Tracker</h1>
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-4 p-4 md:p-6">
+      <header className="panel p-5">
+        <h1 className="text-2xl font-bold text-white md:text-3xl">AI Expense Tracker</h1>
+        <p className="mt-1 text-sm text-slate-300">
+          Smart spending insights with interactive analytics and AI assistant.
+        </p>
+      </header>
 
       <ExpenseForm
         onSubmit={async (payload) => {
@@ -55,7 +72,7 @@ export default function App() {
       />
 
       <form
-        className="flex flex-wrap items-end gap-2 rounded-xl bg-white p-4 shadow"
+        className="panel flex flex-wrap items-end gap-2 p-5"
         onSubmit={async (e) => {
           e.preventDefault();
           await setBudget({ month: budgetMonth, amount: Number(budgetAmount) });
@@ -63,13 +80,55 @@ export default function App() {
           await refreshData();
         }}
       >
-        <h2 className="w-full text-lg font-semibold">Set Monthly Budget</h2>
-        <input className="rounded border p-2" type="month" value={budgetMonth} onChange={(e) => setBudgetMonth(e.target.value)} required />
-        <input className="rounded border p-2" type="number" step="0.01" placeholder="Budget amount" value={budgetAmount} onChange={(e) => setBudgetAmount(e.target.value)} required />
-        <button className="rounded bg-emerald-600 px-3 py-2 text-white" type="submit">Save Budget</button>
+        <h2 className="w-full text-lg font-semibold text-slate-100">Set Monthly Budget</h2>
+        <input className="input-ui" type="month" value={budgetMonth} onChange={(e) => setBudgetMonth(e.target.value)} required />
+        <input className="input-ui" type="number" step="0.01" placeholder="Budget amount" value={budgetAmount} onChange={(e) => setBudgetAmount(e.target.value)} required />
+        <button className="btn-secondary" type="submit">Save Budget</button>
+        <button
+          className="rounded-lg bg-rose-600 px-4 py-2 font-medium text-white transition hover:bg-rose-500"
+          type="button"
+          onClick={async () => {
+            const firstConfirm = window.confirm(
+              `Clear budget for ${budgetMonth}? This action cannot be undone.`,
+            );
+            if (!firstConfirm) return;
+            const secondConfirm = window.confirm(
+              "Please confirm again: permanently remove this month's budget?",
+            );
+            if (!secondConfirm) return;
+            await clearBudget(budgetMonth);
+            await refreshData();
+          }}
+        >
+          Clear Budget
+        </button>
+        <button
+          className="rounded-lg bg-amber-600 px-4 py-2 font-medium text-white transition hover:bg-amber-500"
+          type="button"
+          onClick={async () => {
+            const firstConfirm = window.confirm(
+              `Clear all spent entries for ${currentMonth}? This deletes expenses and resets total spent.`,
+            );
+            if (!firstConfirm) return;
+            const secondConfirm = window.confirm(
+              "Please confirm again: permanently delete all expenses for this month?",
+            );
+            if (!secondConfirm) return;
+            await clearSpent(currentMonth);
+            await refreshData();
+          }}
+        >
+          Clear Total Spent
+        </button>
+        {summary && summary.budget !== null && (
+          <p className="w-full text-sm text-slate-300">
+            Current budget for {summary.month}:{" "}
+            <span className="font-semibold text-emerald-300">{pkr.format(summary.budget || 0)}</span>
+          </p>
+        )}
       </form>
 
-      <SummaryDashboard summary={summary} />
+      <SummaryDashboard summary={summary} expenses={expenses} month={currentMonth} />
       <ExpenseTable
         expenses={expenses}
         categoryFilter={categoryFilter}
@@ -78,6 +137,31 @@ export default function App() {
         setStartDate={setStartDate}
         endDate={endDate}
         setEndDate={setEndDate}
+        onEditExpense={async (expense) => {
+          const amountRaw = window.prompt("Edit amount (PKR):", String(expense.amount));
+          if (amountRaw === null) return;
+          const categoryRaw = window.prompt(
+            "Edit category (Food/Fuel/Other):",
+            expense.category,
+          );
+          if (categoryRaw === null) return;
+          const dateRaw = window.prompt("Edit date (YYYY-MM-DD):", expense.date);
+          if (dateRaw === null) return;
+          const noteRaw = window.prompt("Edit note (optional):", expense.note || "");
+          const parsedAmount = Number(amountRaw);
+          const normalizedCategory = categoryRaw.trim();
+          if (!parsedAmount || !["Food", "Fuel", "Other"].includes(normalizedCategory)) {
+            window.alert("Invalid input. Please provide valid amount and category.");
+            return;
+          }
+          await updateExpense(expense.id, {
+            amount: parsedAmount,
+            category: normalizedCategory as ExpenseCategory,
+            date: dateRaw,
+            note: noteRaw || undefined,
+          });
+          await refreshData();
+        }}
       />
       <AgentChat
         onSend={async (message) => {

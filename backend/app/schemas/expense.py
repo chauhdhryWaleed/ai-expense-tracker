@@ -22,3 +22,10 @@ class ExpenseRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ExpenseUpdate(BaseModel):
+    amount: float = Field(..., gt=0)
+    category: ExpenseCategory
+    date: date
+    note: str | None = Field(default=None, max_length=255)

@@ -31,6 +31,16 @@ export async function addExpense(payload: {
   return request<Expense>("/expense", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export async function updateExpense(
+  expenseId: number,
+  payload: { amount: number; category: ExpenseCategory; date: string; note?: string },
+) {
+  return request<Expense>(`/expense/${expenseId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function getExpenses(filters?: {
   start_date?: string;
   end_date?: string;
@@ -48,6 +58,18 @@ export async function setBudget(payload: { month: string; amount: number }) {
   return request<{ month: string; amount: number }>("/budget", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function clearBudget(month: string) {
+  return request<{ month: string; deleted: boolean }>(`/budget/${month}`, {
+    method: "DELETE",
+  });
+}
+
+export async function clearSpent(month: string) {
+  return request<{ month: string; deleted_count: number }>(`/expenses?month=${month}`, {
+    method: "DELETE",
   });
 }
 

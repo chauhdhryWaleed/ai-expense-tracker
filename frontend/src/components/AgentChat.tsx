@@ -7,16 +7,19 @@ interface Props {
 export default function AgentChat({ onSend }: Props) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; text: string }[]>([]);
+  const [loading, setLoading] = useState(false);
 
   return (
-    <div className="rounded-xl bg-white p-4 shadow">
-      <h2 className="mb-2 text-lg font-semibold">AI Assistant</h2>
-      <div className="mb-3 h-48 overflow-y-auto rounded border p-2">
+    <div className="panel p-5">
+      <h2 className="mb-2 text-lg font-semibold text-slate-100">AI Assistant</h2>
+      <div className="mb-3 h-56 overflow-y-auto rounded-xl border border-slate-700 bg-slate-900/40 p-3">
         {messages.map((message, idx) => (
-          <p key={idx} className="mb-1 text-sm">
-            <span className="font-semibold">{message.role === "user" ? "You" : "Agent"}:</span> {message.text}
-          </p>
+          <div key={idx} className={`mb-2 max-w-[90%] rounded-xl px-3 py-2 text-sm ${message.role === "user" ? "ml-auto bg-indigo-500/30 text-indigo-100" : "bg-slate-800 text-slate-100"}`}>
+            <span className="mr-1 font-semibold">{message.role === "user" ? "You:" : "Agent:"}</span>
+            {message.text}
+          </div>
         ))}
+        {loading && <p className="text-sm text-slate-400">Agent is thinking...</p>}
       </div>
       <form
         className="flex gap-2"
@@ -26,12 +29,19 @@ export default function AgentChat({ onSend }: Props) {
           const userMsg = input.trim();
           setInput("");
           setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
-          const response = await onSend(userMsg);
-          setMessages((prev) => [...prev, { role: "assistant", text: response }]);
+          setLoading(true);
+          try {
+            const response = await onSend(userMsg);
+            setMessages((prev) => [...prev, { role: "assistant", text: response }]);
+          } catch {
+            setMessages((prev) => [...prev, { role: "assistant", text: "I hit an error while processing that request. Please try again." }]);
+          } finally {
+            setLoading(false);
+          }
         }}
       >
-        <input className="flex-1 rounded border p-2" placeholder="Ask: I spent 500 on petrol today" value={input} onChange={(e) => setInput(e.target.value)} />
-        <button className="rounded bg-slate-800 px-3 py-2 text-white" type="submit">Send</button>
+        <input className="input-ui flex-1" placeholder="Ask: I spent 500 on petrol today" value={input} onChange={(e) => setInput(e.target.value)} />
+        <button className="btn-primary" type="submit" disabled={loading}>Send</button>
       </form>
     </div>
   );
