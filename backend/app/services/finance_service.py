@@ -101,6 +101,10 @@ def clear_budget(db: Session, month: str) -> bool:
     return True
 
 
+def get_budget_by_month(db: Session, month: str) -> Budget | None:
+    return db.scalar(select(Budget).where(Budget.month == month))
+
+
 def get_summary(db: Session, month: str) -> dict:
     year, month_num = month.split("-")
 

@@ -1,4 +1,5 @@
 import os
+import logging
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -12,6 +13,10 @@ from app.routes.expense import router as expense_router
 from app.routes.summary import router as summary_router
 
 load_dotenv()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+)
 
 app = FastAPI(title="AI Expense Tracker API", version="1.0.0")
 
